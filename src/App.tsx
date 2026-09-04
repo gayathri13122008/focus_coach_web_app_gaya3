@@ -6,7 +6,7 @@ import { Onboarding } from '@/pages/Onboarding';
 import { Dashboard } from '@/pages/Dashboard';
 import { FocusTimer } from '@/pages/FocusTimer';
 import { Planner } from '@/pages/Planner';
-import { AICoach } from '@/pages/AICoach';
+import { Games } from '@/pages/Games';
 import { Library } from '@/pages/Library';
 import { Flashcards } from '@/pages/Flashcards';
 import { Tests } from '@/pages/Tests';
@@ -29,7 +29,7 @@ function AppContent() {
       {page === 'dashboard' && <Dashboard onNavigate={setPage} />}
       {page === 'focus' && <FocusTimer />}
       {page === 'planner' && <Planner />}
-      {page === 'ai' && <AICoach />}
+      {page === 'games' && <Games onNavigate={setPage} />}
       {page === 'library' && <Library onNavigate={setPage} />}
       {page === 'flashcards' && <Flashcards onNavigate={setPage} />}
       {page === 'tests' && <Tests />}

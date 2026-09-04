@@ -486,7 +486,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: PageKey) => void }) 
             width: 40,
             height: 40,
             borderRadius: 12,
-            background: 'var(--gradient-cool)',
+            background: 'var(--gradient-instagram)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -495,11 +495,11 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: PageKey) => void }) 
             <Sparkles size={20} color="#FFF" />
           </div>
           <div style={{ fontSize: 13.5, color: 'var(--text-secondary)', flex: 1 }}>
-            <strong style={{ color: 'var(--text-primary)' }}>AI Briefing:</strong>{' '}
-            Ask your AI Coach for a personalized plan based on your {user.exam || 'study'} roadmap and today's progress.
+            <strong style={{ color: 'var(--text-primary)' }}>Need a break?</strong>{' '}
+            Take a quick study game break to refresh your mind and earn bonus XP.
           </div>
-          <Button size="sm" variant="secondary" onClick={() => onNavigate('ai')}>
-            Ask AI →
+          <Button size="sm" variant="secondary" onClick={() => onNavigate('games')}>
+            Play Games →
           </Button>
         </Card>
       )}
@@ -509,7 +509,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: PageKey) => void }) 
         <SectionTitle>Quick Actions</SectionTitle>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
           <QuickAction icon="⏱" label="Start Focus Session" gradient="var(--gradient-cool)" onClick={() => onNavigate('focus')} />
-          <QuickAction icon="🤖" label="Ask AI Coach" gradient="var(--gradient-instagram)" onClick={() => onNavigate('ai')} />
+          <QuickAction icon="🎮" label="Play Study Games" gradient="var(--gradient-instagram)" onClick={() => onNavigate('games')} />
           <QuickAction icon="📅" label="Plan Your Day" gradient="var(--gradient-fresh)" onClick={() => onNavigate('planner')} />
           <QuickAction icon="⊡" label="Review Flashcards" gradient="var(--gradient-sunny)" onClick={() => onNavigate('flashcards')} />
         </div>

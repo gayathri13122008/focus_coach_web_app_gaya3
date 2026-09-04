@@ -2,7 +2,7 @@ export type PageKey =
   | 'dashboard'
   | 'focus'
   | 'planner'
-  | 'ai'
+  | 'games'
   | 'library'
   | 'flashcards'
   | 'tests'
