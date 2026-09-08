@@ -330,12 +330,12 @@ function GroupCard({ group, isMember, onOpen, onLeave }: { group: StudyGroup; is
       {isMember ? (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <Tag color="teal">Joined</Tag>
-          <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onLeave(); }} style={{ color: 'var(--red)', fontSize: 11 }}>
+          <Button size="sm" variant="ghost" onClick={() => onLeave()} style={{ color: 'var(--red)', fontSize: 11 }}>
             Leave
           </Button>
         </div>
       ) : (
-        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
+        <Button size="sm" variant="ghost" onClick={() => onOpen()}>
           View →
         </Button>
       )}

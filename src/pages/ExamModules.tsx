@@ -55,7 +55,7 @@ export function ExamModules() {
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--blue)' }}>{subj}</div>
                 <Tag color="gold">{pct}%</Tag>
               </div>
-              <ProgressBar value={pct} height={4} style={{ marginBottom: 12 }} />
+              <div style={{ marginBottom: 12 }}><ProgressBar value={pct} height={4} /></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {chapters.map((ch) => {
                   const status = chapterStatuses[`${subj}::${ch}`] || 'todo';

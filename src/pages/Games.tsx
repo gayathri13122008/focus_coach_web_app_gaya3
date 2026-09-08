@@ -3,6 +3,7 @@ import { Gamepad2, Brain, Zap, Trophy, RefreshCw, Check, X, Timer, ChevronRight,
 import { Card, SectionTitle, Button, Tag } from '@/components/ui';
 import { useApp } from '@/store/AppContext';
 import type { PageKey } from '@/lib/types';
+import type { ToastType } from '@/components/toast';
 
 type GameId = 'memory' | 'quiz' | 'reaction' | null;
 
@@ -168,7 +169,7 @@ export function Games({ onNavigate }: { onNavigate: (p: PageKey) => void }) {
 function MemoryGame({ onBack, onSaveScore, onToast, best }: {
   onBack: () => void;
   onSaveScore: (game: string, score: number) => void;
-  onToast: (msg: string, type?: string) => void;
+  onToast: (msg: string, type?: ToastType) => void;
   best?: number;
 }) {
   const [cards, setCards] = useState<{ emoji: string; flipped: boolean; matched: boolean }[]>([]);
@@ -286,7 +287,7 @@ function MemoryGame({ onBack, onSaveScore, onToast, best }: {
 function QuizGame({ onBack, onSaveScore, onToast, best }: {
   onBack: () => void;
   onSaveScore: (game: string, score: number) => void;
-  onToast: (msg: string, type?: string) => void;
+  onToast: (msg: string, type?: ToastType) => void;
   best?: number;
 }) {
   const [questions, setQuestions] = useState(() => shuffle(quizQuestions).slice(0, 8));
@@ -412,7 +413,7 @@ function QuizGame({ onBack, onSaveScore, onToast, best }: {
 function ReactionGame({ onBack, onSaveScore, onToast, best }: {
   onBack: () => void;
   onSaveScore: (game: string, score: number) => void;
-  onToast: (msg: string, type?: string) => void;
+  onToast: (msg: string, type?: ToastType) => void;
   best?: number;
 }) {
   const [state, setState] = useState<'idle' | 'waiting' | 'go' | 'result' | 'tooSoon'>('idle');
