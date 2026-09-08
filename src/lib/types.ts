@@ -12,6 +12,7 @@ export type PageKey =
   | 'analytics';
 
 export type UserProfile = {
+  authId: string;
   name: string;
   initials: string;
   exam: string;

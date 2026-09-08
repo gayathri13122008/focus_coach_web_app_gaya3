@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Task, Session, Flashcard, TestAttempt, PlannerBlock, Resource, StudyDay, StudyGroup, GroupMember, LeaderboardProfile } from '@/lib/supabase';
+import type { Task, Session, Flashcard, TestAttempt, PlannerBlock, Resource, StudyDay, StudyGroup, GroupMember, LeaderboardProfile, UserProfileRow } from '@/lib/supabase';
 import type { UserProfile } from '@/lib/types';
 import { useToast } from '@/components/toast';
 import type { ToastType } from '@/components/toast';
@@ -35,6 +35,9 @@ type AppState = {
 type AppContextValue = AppState & {
   showToast: (text: string, type?: ToastType) => void;
   setUser: (u: Partial<UserProfile>) => void;
+  signUp: (email: string, password: string, profile: { name: string; exam: string; dailyHours: number; level: string; phone: string }) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signOut: () => void;
   addTask: (title: string, subject: string) => Promise<void>;
   toggleTask: (id: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
@@ -46,7 +49,6 @@ type AppContextValue = AppState & {
   deletePlannerBlock: (id: string) => Promise<void>;
   addResource: (icon: string, title: string, meta: string, outputs: { label: string; color: string }[]) => Promise<void>;
   deleteResource: (id: string) => Promise<void>;
-  signOut: () => void;
   studyGroups: StudyGroup[];
   myGroups: StudyGroup[];
   leaderboard: LeaderboardProfile[];
@@ -58,6 +60,7 @@ type AppContextValue = AppState & {
 };
 
 const defaultUser: UserProfile = {
+  authId: '',
   name: '',
   initials: '',
   exam: '',
@@ -88,8 +91,6 @@ export function useApp() {
   if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;
 }
-
-const STORAGE_KEY = 'focus_coach_user';
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -163,21 +164,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const u = JSON.parse(stored);
-        setUserState({ ...defaultUser, ...u });
-      } catch {
-        // ignore
-      }
-    }
-  }, []);
-
-  const loadData = useCallback(async () => {
-    const [tasksRes, sessionsRes, flashcardsRes, testsRes, plannerRes, resourcesRes, studyDaysRes, groupsRes, lbRes] =
+  const loadData = useCallback(async (authId: string, email: string) => {
+    const [profileRes, tasksRes, sessionsRes, flashcardsRes, testsRes, plannerRes, resourcesRes, studyDaysRes, groupsRes, lbRes] =
       await Promise.all([
+        supabase.from('user_profiles').select('*').eq('user_id', authId).maybeSingle(),
         supabase.from('tasks').select('*').order('created_at', { ascending: false }),
         supabase.from('sessions').select('*').order('created_at', { ascending: false }),
         supabase.from('flashcards').select('*').order('created_at', { ascending: false }),
@@ -188,6 +178,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         supabase.from('study_groups').select('*').order('created_at', { ascending: false }),
         supabase.from('leaderboard_profiles').select('*').order('xp', { ascending: false }),
       ]);
+
+    const profile = profileRes.data as UserProfileRow | null;
 
     const allTasks = (tasksRes.data || []) as Task[];
     const allSessions = (sessionsRes.data || []) as Session[];
@@ -209,17 +201,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setStudyGroups(allGroups);
     setLeaderboard(allLeaderboard);
 
-    // Load my groups (groups where this user is a member)
-    if (user.email) {
-      const { data: myMemberships } = await supabase
-        .from('group_members')
-        .select('group_id')
-        .eq('member_email', user.email);
-      if (myMemberships && myMemberships.length > 0) {
-        const myGroupIds = myMemberships.map((m: { group_id: string }) => m.group_id);
-        const myGroupsList = allGroups.filter((g) => myGroupIds.includes(g.id));
-        setMyGroups(myGroupsList);
-      }
+    const initials = profile?.initials || (profile?.name ? profile.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : '');
+    setUserState({
+      authId,
+      name: profile?.name || '',
+      initials,
+      exam: profile?.exam || '',
+      dailyHours: profile?.daily_hours || 8,
+      level: profile?.level || 'Intermediate',
+      plan: 'free',
+      joinedAt: profile?.created_at || null,
+      email,
+      phone: profile?.phone || '',
+    });
+
+    // Load my groups
+    const { data: myMemberships } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', authId);
+    if (myMemberships && myMemberships.length > 0) {
+      const myGroupIds = myMemberships.map((m: { group_id: string }) => m.group_id);
+      const myGroupsList = allGroups.filter((g) => myGroupIds.includes(g.id));
+      setMyGroups(myGroupsList);
     }
 
     const heat = Array(84).fill(0);
@@ -239,12 +243,96 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLoaded(true);
   }, [computeStats]);
 
+  // Auth state listener + initial session check
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      (async () => {
+        if (!mounted) return;
+        if (event === 'SIGNED_OUT' || !session) {
+          setUserState(defaultUser);
+          setStats(defaultStats);
+          setTasks([]);
+          setSessions([]);
+          setFlashcards([]);
+          setTestAttempts([]);
+          setPlannerBlocks([]);
+          setResources([]);
+          setStudyDays([]);
+          setHeatmap(Array(84).fill(0));
+          setStudyGroups([]);
+          setMyGroups([]);
+          setLeaderboard([]);
+          setLoaded(false);
+        } else if (session.user) {
+          await loadData(session.user.id, session.user.email || '');
+        }
+      })();
+    });
+
+    // Check existing session on mount
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!mounted) return;
+      if (session?.user) {
+        await loadData(session.user.id, session.user.email || '');
+      } else {
+        setLoaded(false);
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [loadData]);
+
   const setUser = useCallback((u: Partial<UserProfile>) => {
     setUserState((prev) => {
       const next = { ...prev, ...u };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      if (next.authId) {
+        supabase.from('user_profiles').upsert({
+          user_id: next.authId,
+          name: next.name,
+          initials: next.initials,
+          exam: next.exam,
+          daily_hours: next.dailyHours,
+          level: next.level,
+          phone: next.phone,
+        });
+      }
       return next;
     });
+  }, []);
+
+  const signUp = useCallback(async (
+    email: string,
+    password: string,
+    profile: { name: string; exam: string; dailyHours: number; level: string; phone: string },
+  ): Promise<{ error: string | null }> => {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) return { error: error.message };
+    if (data.user) {
+      const initials = profile.name.trim().split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+      await supabase.from('user_profiles').insert({
+        user_id: data.user.id,
+        name: profile.name,
+        initials,
+        exam: profile.exam,
+        daily_hours: profile.dailyHours,
+        level: profile.level,
+        phone: profile.phone,
+      });
+    }
+    return { error: null };
+  }, []);
+
+  const signIn = useCallback(async (email: string, password: string): Promise<{ error: string | null }> => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: error.message };
+    return { error: null };
+  }, []);
+
+  const signOut = useCallback(() => {
+    supabase.auth.signOut();
   }, []);
 
   const addTask = useCallback(
@@ -412,9 +500,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const upsertLeaderboard = useCallback(
     async (profile: { name: string; initials: string; exam: string; xp: number; streak: number; total_minutes: number; tests_taken: number; best_score_pct: number | null }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
       const { data } = await supabase
         .from('leaderboard_profiles')
-        .upsert(profile, { onConflict: 'name' })
+        .upsert({ ...profile, user_id: session.user.id }, { onConflict: 'user_id' })
         .select()
         .single();
       if (data) {
@@ -439,16 +529,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const newGroup = data as StudyGroup;
       setStudyGroups((prev) => [newGroup, ...prev]);
 
-      // Auto-join creator
-      if (user.email) {
-        await supabase.from('group_members').insert({
-          group_id: newGroup.id,
-          member_name: user.name,
-          member_email: user.email,
-          member_phone: user.phone || '',
-        });
-        setMyGroups((prev) => [...prev, newGroup]);
-      }
+      await supabase.from('group_members').insert({
+        group_id: newGroup.id,
+        member_name: user.name,
+        member_email: user.email,
+        member_phone: user.phone || '',
+      });
+      setMyGroups((prev) => [...prev, newGroup]);
       return { success: true, accessCode };
     },
     [user.name, user.email, user.phone],
@@ -466,12 +553,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       const group = groupData as StudyGroup;
 
-      // Check if already a member
       const { data: existing } = await supabase
         .from('group_members')
         .select('id')
         .eq('group_id', group.id)
-        .eq('member_email', user.email)
+        .eq('user_id', user.authId)
         .maybeSingle();
       if (existing) {
         return { success: false, error: 'You are already a member of this group.' };
@@ -489,15 +575,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMyGroups((prev) => (prev.find((g) => g.id === group.id) ? prev : [...prev, group]));
       return { success: true, group };
     },
-    [user.name, user.email, user.phone],
+    [user.authId, user.name, user.email, user.phone],
   );
 
   const leaveGroup = useCallback(
     async (groupId: string): Promise<void> => {
-      await supabase.from('group_members').delete().eq('group_id', groupId).eq('member_email', user.email);
+      await supabase.from('group_members').delete().eq('group_id', groupId).eq('user_id', user.authId);
       setMyGroups((prev) => prev.filter((g) => g.id !== groupId));
     },
-    [user.email],
+    [user.authId],
   );
 
   const getGroupMembers = useCallback(
@@ -507,29 +593,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
-
-  const signOut = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setUserState(defaultUser);
-    setStats(defaultStats);
-    setTasks([]);
-    setSessions([]);
-    setFlashcards([]);
-    setTestAttempts([]);
-    setPlannerBlocks([]);
-    setResources([]);
-    setStudyDays([]);
-    setHeatmap(Array(84).fill(0));
-    setStudyGroups([]);
-    setMyGroups([]);
-    setLeaderboard([]);
-    setLoaded(false);
-  }, []);
-
-  // Load data on mount
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const value: AppContextValue = {
     user,
@@ -545,6 +608,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loaded,
     showToast,
     setUser,
+    signUp,
+    signIn,
+    signOut,
     addTask,
     toggleTask,
     deleteTask,
@@ -556,7 +622,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     deletePlannerBlock,
     addResource,
     deleteResource,
-    signOut,
     studyGroups,
     myGroups,
     leaderboard,

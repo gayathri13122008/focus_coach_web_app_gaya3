@@ -20,7 +20,7 @@ function AppContent() {
   const { user, loaded } = useApp();
   const [page, setPage] = useState<PageKey>('dashboard');
 
-  if (!user.name) {
+  if (!user.authId) {
     return <Onboarding />;
   }
 

@@ -89,6 +89,7 @@ export type GroupMember = {
 
 export type LeaderboardProfile = {
   id: string;
+  user_id: string | null;
   name: string;
   initials: string;
   exam: string;
@@ -99,4 +100,15 @@ export type LeaderboardProfile = {
   best_score_pct: number | null;
   last_active: string;
   updated_at: string;
+};
+
+export type UserProfileRow = {
+  user_id: string;
+  name: string;
+  initials: string;
+  exam: string;
+  daily_hours: number;
+  level: string;
+  phone: string;
+  created_at: string;
 };
